@@ -8,20 +8,20 @@
 // https://github.com/megawac/async/blob/d2dd36b4558f483682f3c672630fdcb36a96d4d2/lib/async.js#L16
 ((typeof self === "object" && self.self === self && self) ||
   (typeof global === "object" && global.global === global && global) ||
-  this).__ = (x) => x;
+  this).__ = x => x;
 
 import React, {Component} from "react";
 import {
-    Editor,
-    RichUtils,
-    getDefaultKeyBinding,
-    EditorState,
-    genKey,
-    ContentBlock,
-    SelectionState
+  Editor,
+  RichUtils,
+  getDefaultKeyBinding,
+  EditorState,
+  genKey,
+  ContentBlock,
+  SelectionState,
+  DefaultDraftBlockRenderMap
 } from "draft-js";
 import Immutable from "immutable";
-
 
 import DefaultToolbar from "./Toolbar";
 import Sidebar from "./Sidebar";
@@ -33,11 +33,10 @@ import DEFAULT_ENTITY_INPUTS from "../entity_inputs/default";
 
 const NO_RESET_STYLE_DEFAULT = ["ordered-list-item", "unordered-list-item"];
 
-
 export default class MegadraftEditor extends Component {
   static defaultProps = {
-    actions: DEFAULT_ACTIONS,
-  }
+    actions: DEFAULT_ACTIONS
+  };
 
   constructor(props) {
     super(props);
@@ -48,6 +47,9 @@ export default class MegadraftEditor extends Component {
     this.onChange = ::this.onChange;
 
     this.mediaBlockRenderer = ::this.mediaBlockRenderer;
+    this.blockRenderMap = ::this.blockRenderMap;
+
+    this.blockStyleFn = ::this.blockStyleFn;
 
     this.handleKeyCommand = ::this.handleKeyCommand;
     this.handleReturn = ::this.handleReturn;
@@ -61,13 +63,12 @@ export default class MegadraftEditor extends Component {
 
     this.plugins = this.getValidPlugins();
     this.entityInputs = this.props.entityInputs || DEFAULT_ENTITY_INPUTS;
-    this.blocksWithoutStyleReset = (this.props.blocksWithoutStyleReset ||
-                                    NO_RESET_STYLE_DEFAULT);
+    this.blocksWithoutStyleReset =
+      this.props.blocksWithoutStyleReset || NO_RESET_STYLE_DEFAULT;
 
     this.pluginsByType = this.getPluginsByType();
 
     this.keyBindings = this.props.keyBindings || [];
-
   }
 
   getValidPlugins() {
@@ -92,7 +93,7 @@ export default class MegadraftEditor extends Component {
     return pluginsByType;
   }
 
-  componentWillReceiveProps(nextProps){
+  componentWillReceiveProps(nextProps) {
     if (this.props.readOnly !== nextProps.readOnly) {
       this.setState({readOnly: nextProps.readOnly});
     }
@@ -139,8 +140,14 @@ export default class MegadraftEditor extends Component {
    *
    * License: MIT
    */
-   //Based on https://github.com/icelab/draft-js-block-breakout-plugin
-  resetBlockStyle(editorState, selection, contentState, currentBlock, blockType) {
+  //Based on https://github.com/icelab/draft-js-block-breakout-plugin
+  resetBlockStyle(
+    editorState,
+    selection,
+    contentState,
+    currentBlock,
+    blockType
+  ) {
     const {List} = Immutable;
     const emptyBlockKey = genKey();
 
@@ -150,24 +157,29 @@ export default class MegadraftEditor extends Component {
       type: blockType,
       depth: 0,
       characterList: List(),
-      inlineStyleRanges: [],
+      inlineStyleRanges: []
     });
     const blockMap = contentState.getBlockMap();
 
-    const blocksBefore = blockMap.toSeq().takeUntil(function (v) {
+    const blocksBefore = blockMap.toSeq().takeUntil(function(v) {
       return v === currentBlock;
     });
-    const blocksAfter = blockMap.toSeq().skipUntil(function (v) {
-      return v === currentBlock;
-    }).rest();
+    const blocksAfter = blockMap
+      .toSeq()
+      .skipUntil(function(v) {
+        return v === currentBlock;
+      })
+      .rest();
 
     const augmentedBlocks = [
       [currentBlock.getKey(), currentBlock],
-      [emptyBlockKey, emptyBlock],
+      [emptyBlockKey, emptyBlock]
     ];
 
     const focusKey = emptyBlockKey;
-    const newBlocks = blocksBefore.concat(augmentedBlocks, blocksAfter).toOrderedMap();
+    const newBlocks = blocksBefore
+      .concat(augmentedBlocks, blocksAfter)
+      .toOrderedMap();
     const newContentState = contentState.merge({
       blockMap: newBlocks,
       selectionBefore: selection,
@@ -180,10 +192,20 @@ export default class MegadraftEditor extends Component {
       })
     });
     const noStyle = Immutable.OrderedSet([]);
-    const resetState = EditorState.push(editorState, newContentState, "split-block");
+    const resetState = EditorState.push(
+      editorState,
+      newContentState,
+      "split-block"
+    );
     const emptySelection = SelectionState.createEmpty(emptyBlockKey);
-    const editorSelected = EditorState.forceSelection(resetState, emptySelection);
-    const noStyleState = EditorState.setInlineStyleOverride(editorSelected, noStyle);
+    const editorSelected = EditorState.forceSelection(
+      resetState,
+      emptySelection
+    );
+    const noStyleState = EditorState.setInlineStyleOverride(
+      editorSelected,
+      noStyle
+    );
     this.props.onChange(noStyleState);
   }
 
@@ -198,7 +220,7 @@ export default class MegadraftEditor extends Component {
       const contentState = editorState.getCurrentContent();
       const currentBlock = contentState.getBlockForKey(selection.getEndKey());
       const endOffset = selection.getEndOffset();
-      const atEndOfBlock = (endOffset === currentBlock.getLength());
+      const atEndOfBlock = endOffset === currentBlock.getLength();
       const resetStyleNewLine = this.props.resetStyleNewLine;
       const noReset = this.blocksWithoutStyleReset.includes(currentBlock.type);
 
@@ -220,11 +242,15 @@ export default class MegadraftEditor extends Component {
 
     const currentContent = editorState.getCurrentContent();
     const currentSelection = editorState.getSelection();
-    const contentBlock = currentContent.getBlockMap().get(currentSelection.getFocusKey());
+    const contentBlock = currentContent
+      .getBlockMap()
+      .get(currentSelection.getFocusKey());
     const contentText = contentBlock.getText();
 
-    if (contentText.charAt(currentSelection.focusOffset -1) == "\n" ||
-        contentText.charAt(currentSelection.focusOffset) == "\n"){
+    if (
+      contentText.charAt(currentSelection.focusOffset - 1) == "\n" ||
+      contentText.charAt(currentSelection.focusOffset) == "\n"
+    ) {
       return false;
     }
 
@@ -290,14 +316,35 @@ export default class MegadraftEditor extends Component {
 
   blockStyleFn(contentBlock) {
     const type = contentBlock.getType();
+    const blockStyles = this.props.blockStyles || [];
+    const blockStyle = blockStyles.filter(bs => bs.type === type)[0];
+    if (blockStyle) {
+      return blockStyle.className;
+    }
     if (type === "unstyled") {
       return "paragraph";
     }
   }
+  blockRenderMap() {
+    if (!this.props.blockStyles) {
+      return DefaultDraftBlockRenderMap;
+    }
+    const newBlocks = new Map(
+      this.props.blockStyles.map(bs => {
+        return [
+          bs.type,
+          {
+            element: bs.element
+          }
+        ];
+      })
+    );
+    return DefaultDraftBlockRenderMap.merge(newBlocks);
+  }
 
   renderSidebar(props) {
     const {sidebarRendererFn} = this.props;
-    if(typeof sidebarRendererFn === "function") {
+    if (typeof sidebarRendererFn === "function") {
       return sidebarRendererFn(props);
     }
     return <Sidebar {...props} />;
@@ -311,17 +358,14 @@ export default class MegadraftEditor extends Component {
   render() {
     return (
       <div className="megadraft">
-        <div
-          className="megadraft-editor"
-          id="megadraft-editor"
-          ref="editor">
+        <div className="megadraft-editor" id="megadraft-editor" ref="editor">
           {this.renderSidebar({
             plugins: this.plugins,
             editorState: this.props.editorState,
             readOnly: this.state.readOnly,
             onChange: this.onChange,
             maxSidebarButtons: this.props.maxSidebarButtons,
-            modalOptions: this.props.modalOptions,
+            modalOptions: this.props.modalOptions
           })}
           <Editor
             {...this.props}
@@ -330,6 +374,7 @@ export default class MegadraftEditor extends Component {
             plugins={this.plugins}
             blockRendererFn={this.mediaBlockRenderer}
             blockStyleFn={this.props.blockStyleFn || this.blockStyleFn}
+            blockRenderMap={this.blockRenderMap()}
             onTab={this.onTab}
             handleKeyCommand={this.handleKeyCommand}
             handleReturn={this.props.handleReturn || this.handleReturn}
@@ -343,7 +388,7 @@ export default class MegadraftEditor extends Component {
             onChange: this.onChange,
             actions: this.props.actions,
             entityInputs: this.entityInputs,
-            shouldDisplayToolbarFn: this.props.shouldDisplayToolbarFn,
+            shouldDisplayToolbarFn: this.props.shouldDisplayToolbarFn
           })}
         </div>
       </div>
